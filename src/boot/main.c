@@ -127,7 +127,7 @@ EFI_STATUS UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 
 
   SystemTable->ConOut->clearScreen(SystemTable->ConOut);
-  SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Hello UEFI\n\r");
+  SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Hello UEFI\r\n");
 
   // Get EFI_SIMPLE_FILE_SYSTEM_PROTOCOL
   EFI_GUID sfsp_guid = EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
@@ -135,16 +135,16 @@ EFI_STATUS UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 
   status = SFSP->OpenVolume(SFSP, &root);
   if (status == EFI_SUCCESS) {
-    SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Success OpenVolume\n\r");
+    SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Success OpenVolume\r\n");
   }
 
 
   // load the kernel file
-  SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Start Loading Kos Kernel.\n\r");
+  SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Start Loading Kos Kernel.\r\n");
 
   status = root->Open(root, &kernel, L"kernel.bin", EFI_FILE_MODE_READ, 0);
   if (status == EFI_SUCCESS) {
-    SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Success root->Open\n\r");
+    SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Success root->Open\r\n");
   }
 
   UINTN kernel_size;
@@ -155,15 +155,23 @@ EFI_STATUS UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
   } FInfo;
   kernel->GetInfo(kernel, &fileinfo_guid, &FInfo_size, &FInfo);
   kernel_size = FInfo.size;
-  status = root->Read(kernel, &kernel_size, (void *)0x1200);
+  status = root->Read(kernel, &kernel_size, (void *)0x12000);
 
   if (status == EFI_SUCCESS) {
-    SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Success root->Read\n\r");
+    SystemTable->ConOut->OutputString(SystemTable->ConOut, L"kernel is loaded!\r\n");
   }
 
   // ExitBootServices
   SystemTable->BootServices->GetMemoryMap(&mapsize, &map, &mapkey, &descriptorsize, &desc_ver);
   SystemTable->BootServices->ExitBootServices(ImageHandle, mapkey);
+
+  void *kernel_start = (void *) 0x12000;
+  __asm__ (
+      ".intel_syntax noprefix\n"
+      "         jmp %0\n"
+      :: "r"(kernel_start)
+      :
+      );
 
   for(;;) ;
 }
