@@ -14,6 +14,21 @@ typedef struct {
 } EFI_TABLE_HEADER;
 
 typedef struct {
+  uint32_t Type;
+  uint64_t              PhysicalStart;
+  uint64_t              VirtualStart;
+  uint64_t              PageNum;
+  uint64_t              Attribute;
+} EFI_MEMORY_DESCRIPTOR;
+
+typedef struct {
+  EFI_TABLE_HEADER Hdr;
+  uint64_t              buf[4];
+  uint64_t      (*GetMemoryMap)(UINTN *MemoryMapSize, 
+                                EFI_MEMORY_DESCRIPTOR *MemoryMap, 
+                                UINTN *MapKey, UINTN *DescriptroSize, uint32_t *DescriptroVersion);
+  uint64_t      buf2[21];
+  uint64_t      (*ExitBootServices)(EFI_HANDLE ImageHandle, UINTN MapKey);
 } EFI_BOOT_SERVICES;
 
 typedef struct {
@@ -56,6 +71,13 @@ EFI_STATUS UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 {
   SystemTable->ConOut->clearScreen(SystemTable->ConOut);
   SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Hello UEFI\n");
+
+  UINTN mapsize, mapkey, descriptorsize;
+  EFI_MEMORY_DESCRIPTOR map;
+  uint32_t desc_ver;
+
+  SystemTable->BootServices->GetMemoryMap(&mapsize, &map, &mapkey, &descriptorsize, &desc_ver);
+  SystemTable->BootServices->ExitBootServices(ImageHandle, mapkey);
 
   for(;;) ;
 }
