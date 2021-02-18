@@ -95,8 +95,16 @@ typedef struct EFI_FILE_PROTOCOL {
                    struct EFI_FILE_PROTOCOL **NewHandle, 
                    uint16_t *FileName, 
                    uint64_t OpenMode, uint64_t Attributes);
-  uint64_t buf[13];
+  uint64_t buf[2];
+  uint64_t (*Read)(struct EFI_FILE_PROTOCOL *This, UINTN *BufferSize, void *Buffer);
+  uint64_t buf2[3];
+  uint64_t (*GetInfo)(struct EFI_FILE_PROTOCOL *This, EFI_GUID *Type, UINTN *Size, void *Buffer);
+
 } EFI_FILE_PROTOCOL;
+
+#define EFI_FILE_INFO_ID \
+ {0x09576e92,0x6d3f,0x11d2,\
+ {0x8e, 0x39,0x00,0xa0,0xc9,0x69,0x72,0x3b}}
 
 // Open Modes
 #define EFI_FILE_MODE_READ      0x0000000000000001
@@ -121,7 +129,7 @@ EFI_STATUS UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
   SystemTable->ConOut->clearScreen(SystemTable->ConOut);
   SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Hello UEFI\n\r");
 
-  //
+  // Get EFI_SIMPLE_FILE_SYSTEM_PROTOCOL
   EFI_GUID sfsp_guid = EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
   SystemTable->BootServices->LocateProtocol(&sfsp_guid, NULL, (void **)&SFSP);
 
@@ -139,6 +147,21 @@ EFI_STATUS UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Success root->Open\n\r");
   }
 
+  UINTN kernel_size;
+  EFI_GUID fileinfo_guid = EFI_FILE_INFO_ID;
+  UINTN FInfo_size = 64;
+  struct {
+    uint64_t size;
+  } FInfo;
+  kernel->GetInfo(kernel, &fileinfo_guid, &FInfo_size, &FInfo);
+  kernel_size = FInfo.size;
+  status = root->Read(kernel, &kernel_size, (void *)0x1200);
+
+  if (status == EFI_SUCCESS) {
+    SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Success root->Read\n\r");
+  }
+
+  // ExitBootServices
   SystemTable->BootServices->GetMemoryMap(&mapsize, &map, &mapkey, &descriptorsize, &desc_ver);
   SystemTable->BootServices->ExitBootServices(ImageHandle, mapkey);
 
