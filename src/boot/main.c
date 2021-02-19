@@ -111,6 +111,37 @@ typedef struct EFI_FILE_PROTOCOL {
 #define EFI_FILE_MODE_WRITE     0x0000000000000002
 #define EFI_FILE_MODE_CREATE    0x8000000000000000
 
+// EFI_GRAPHIC_OUTPUT_PROTOCOL
+#define EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID \
+ {0x9042a9de,0x23dc,0x4a38,\
+ {0x96,0xfb,0x7a,0xde,0xd0,0x80,0x51,0x6a}}
+
+typedef struct EFI_GRAPHIC_OUTPUT_PROTOCOL {
+  uint64_t querymode;
+  uint64_t (*SetMode)(struct EFI_GRAPHIC_OUTPUT_PROTOCOL *This, uint32_t ModeNumber);
+  uint64_t blt;
+  
+  // this contains graphics information. defined below.
+  struct EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE *Mode;
+} EFI_GRAPHIC_OUTPUT_PROTOCOL;
+
+typedef struct EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE {
+  uint32_t MaxMode;
+  uint32_t Mode;
+  uint64_t buf;
+  struct EFI_GRAPHICS_OUTPUT_MODE_INFORMATION  *Info;
+  uint64_t      FrameBufferBase;
+  UINTN         FrameBufferSize;
+} EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE;
+
+typedef struct EFI_GRAPHICS_OUTPUT_MODE_INFORMATION {
+  uint32_t Version;
+  uint32_t HorizontalResolution;
+  uint32_t VericalResolution;
+  uint32_t Format;
+  uint32_t Info[4];
+  uint32_t PixelsPerScanLine;
+} EFI_GRAPHICS_OUTPUT_MODE_INFORMATION;
 
 void ExitBootServices ( EFI_HANDLE ImageHandle, UINTN MapKey);
 
@@ -161,6 +192,36 @@ EFI_STATUS UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     SystemTable->ConOut->OutputString(SystemTable->ConOut, L"kernel is loaded!\r\n");
   }
 
+  // Get Graphics_Output_Protocol
+  EFI_GUID gop_guid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
+  EFI_GRAPHIC_OUTPUT_PROTOCOL *GOP;
+  SystemTable->BootServices->LocateProtocol(&gop_guid, NULL, (void **)&GOP);
+
+  /*
+  status = GOP->SetMode(GOP, 2);
+  if (status == EFI_SUCCESS) {
+    SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Success SetMode:2\r\n");
+  }
+  */
+
+  struct framebuffer {
+    uint64_t base;
+    uint64_t size;
+    uint64_t x_size;
+    uint64_t y_size;
+    uint32_t pps;
+  } fb;
+
+  fb.base = GOP->Mode->FrameBufferBase;
+  fb.size = GOP->Mode->FrameBufferSize;
+  fb.x_size = GOP->Mode->Info->HorizontalResolution;
+  fb.y_size = GOP->Mode->Info->VericalResolution;
+  fb.pps = GOP->Mode->Info->PixelsPerScanLine;
+
+
+  SystemTable->ConOut->OutputString(SystemTable->ConOut, L"finish preparation.\r\n");
+  SystemTable->ConOut->OutputString(SystemTable->ConOut, L"See you again!\r\n");
+
   // ExitBootServices
   SystemTable->BootServices->GetMemoryMap(&mapsize, &map, &mapkey, &descriptorsize, &desc_ver);
   SystemTable->BootServices->ExitBootServices(ImageHandle, mapkey);
@@ -168,8 +229,9 @@ EFI_STATUS UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
   void *kernel_start = (void *) 0x12000;
   __asm__ (
       ".intel_syntax noprefix\n"
-      "         jmp %0\n"
-      :: "r"(kernel_start)
+      "         mov %%rsi, %0\n"
+      "         jmp %1\n"
+      :: "r"(&fb), "r"(kernel_start)
       :
       );
 

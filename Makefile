@@ -5,8 +5,8 @@ uefi_image: src/boot/main.c
 	x86_64-w64-mingw32-gcc -Wall -Wextra -nostdlib -fno-builtin -Wl,--subsystem,10 -o BOOTX64.EFI $<
 
 kernel.bin: src/kernel/main.c
-	gcc -c -m32 -fno-pic -fno-stack-protector $< -o kernel.o
-	ld -m elf_i386 -T src/kernel/kernel.ld kernel.o -o $@
+	gcc -c -fno-pic -fno-stack-protector $< -o kernel.o
+	ld  -T src/kernel/kernel.ld kernel.o -o $@
 
 run: uefi_image kernel.bin
 	mkdir -p fs/EFI/BOOT
