@@ -13,3 +13,6 @@ run: uefi_image kernel.bin
 	cp BOOTX64.EFI fs/EFI/BOOT/
 	cp kernel.bin fs/
 	qemu-system-x86_64 -bios /usr/share/ovmf/OVMF.fd -drive format=raw,file=fat:rw:fs -monitor stdio
+
+clean:
+	rm -rf fs BOOTX64.EFI kernel.o kernel.bin
