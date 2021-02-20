@@ -4,14 +4,21 @@ struct framebuffer {
   unsigned long long x_size;
   unsigned long long y_size;
   unsigned int       pps;
-};
+} fb;
 
-int kernel_init(struct framebuffer *fb)
+int kernel_init(struct framebuffer *_fb)
 {
+  for(;;);
+  fb.base = _fb->base;
+  fb.size = _fb->size;
+  fb.x_size = _fb->x_size;
+  fb.y_size = _fb->y_size;
+  fb.pps = _fb->pps;
+
   unsigned int pixel = 0xffffffff;
-  for (int y = 0; y < fb->y_size; ++y) {
-    for (int x = 0; x < fb->x_size; ++x) {
-      *((unsigned int*)(fb->base + 4 * x + 4 * y * fb->pps)) = pixel;
+  for (int y = 0; y < fb.y_size; ++y) {
+    for (int x = 0; x < fb.x_size; ++x) {
+      *((unsigned int*)(fb.base +  x +  y * fb.x_size)) = pixel;
     }
   }
 

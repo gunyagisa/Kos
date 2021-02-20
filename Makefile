@@ -2,7 +2,7 @@
 
 
 uefi_image: src/boot/main.c
-	x86_64-w64-mingw32-gcc -Wall -Wextra -nostdlib -fno-builtin -Wl,--subsystem,10 -o BOOTX64.EFI $<
+	x86_64-w64-mingw32-gcc $< -Wall -Wextra -nostdlib -fno-builtin -Wl,--subsystem,10 -o BOOTX64.EFI
 
 kernel.bin: src/kernel/main.c
 	gcc -c -fno-pic -fno-stack-protector $< -o kernel.o
