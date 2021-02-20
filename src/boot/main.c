@@ -102,6 +102,31 @@ typedef struct EFI_FILE_PROTOCOL {
 
 } EFI_FILE_PROTOCOL;
 
+struct EFI_TIME {
+  uint16_t Year;
+  uint8_t Month;
+  uint8_t Day;
+  uint8_t Hour;
+  uint8_t Minute;
+  uint8_t Second;
+  uint8_t Pad1;
+  uint32_t Nanosecond;
+  int16_t TimeZone;
+  uint8_t Daylight;
+  uint8_t Pad2;
+} EFI_TIME;
+
+typedef struct EFI_FILE_INFO {
+  uint64_t Size;
+  uint64_t FileSize;
+  uint64_t PhysicalSize;
+  struct EFI_TIME CreateTime;
+  struct EFI_TIME LastAccessTime;
+  struct EFI_TIME ModificationTime;
+  uint64_t Attribute;
+  uint64_t FileName[];
+} EFI_FILE_INFO;
+
 #define EFI_FILE_INFO_ID \
  {0x09576e92,0x6d3f,0x11d2,\
  {0x8e, 0x39,0x00,0xa0,0xc9,0x69,0x72,0x3b}}
@@ -180,13 +205,13 @@ EFI_STATUS UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 
   UINTN kernel_size;
   EFI_GUID fileinfo_guid = EFI_FILE_INFO_ID;
-  UINTN FInfo_size = 64;
-  struct {
-    uint64_t size;
-  } FInfo;
-  kernel->GetInfo(kernel, &fileinfo_guid, &FInfo_size, &FInfo);
-  kernel_size = FInfo.size;
-  status = root->Read(kernel, &kernel_size, (void *)0x12000);
+  UINTN FInfo_size = sizeof(EFI_FILE_INFO);
+
+
+  EFI_FILE_INFO *finfo;
+  kernel->GetInfo(kernel, &fileinfo_guid, &FInfo_size, finfo);
+  kernel_size = finfo->FileSize;
+  status = root->Read(kernel, &kernel_size, (void *)0x120000);
 
   if (status == EFI_SUCCESS) {
     SystemTable->ConOut->OutputString(SystemTable->ConOut, L"kernel is loaded!\r\n");
@@ -226,13 +251,15 @@ EFI_STATUS UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
   SystemTable->BootServices->GetMemoryMap(&mapsize, &map, &mapkey, &descriptorsize, &desc_ver);
   SystemTable->BootServices->ExitBootServices(ImageHandle, mapkey);
 
-  void *kernel_start = (void *) 0x12000;
+  uint64_t kernel_stack = 0x10000;
+
+  unsigned long long kernel_start = 0x120000;
   __asm__ (
       ".intel_syntax noprefix\n"
-      "         mov %%rsi, %0\n"
-      "         jmp %1\n"
-      :: "r"(&fb), "r"(kernel_start)
-      :
+      "         mov %%rdi, %0\n"
+      "         mov %%rsp, %1\n"
+      "         jmp %2\n"
+      :: "r"(&fb), "r"(kernel_stack), "r"(kernel_start)
       );
 
   for(;;) ;
