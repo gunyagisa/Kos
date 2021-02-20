@@ -45,6 +45,10 @@ typedef struct {
   uint64_t      (*ExitBootServices)(EFI_HANDLE ImageHandle, UINTN MapKey);
   uint64_t      buf3[10];
   uint64_t      (*LocateProtocol)(EFI_GUID *Protocol, void *Registration, void **Interface);
+  uint64_t      buf4[5];
+
+  uint64_t      (*SetMem)();
+  uint64_t      buf5;
 } EFI_BOOT_SERVICES;
 
 typedef struct {
@@ -207,7 +211,7 @@ EFI_STATUS UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
   }
 
 
-  // load the kernel file
+  // load the kernel
   SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Start Loading Kos Kernel.\r\n");
 
   status = root->Open(root, &kernel, L"kernel.bin", EFI_FILE_MODE_READ, 0);
@@ -217,8 +221,6 @@ EFI_STATUS UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 
   UINTN kernel_size;
   EFI_GUID fileinfo_guid = EFI_FILE_INFO_ID;
-
-
   EFI_FILE_INFO *finfo;
   uint64_t fi_size = 180;
   uint64_t fi_buf[180];
@@ -227,17 +229,32 @@ EFI_STATUS UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
   if (status == EFI_SUCCESS) {
     SystemTable->ConOut->OutputString(SystemTable->ConOut, L"Success kernel->GetInfo()\r\n");
   }
-
+  
   finfo = (EFI_FILE_INFO *) fi_buf;
-
   kernel_size = finfo->FileSize;
+
+  // read the kernel header
+
+  // This structure is described by kernel.ld
+  struct KernelHeader {
+    uint64_t *bss_start;
+    uint64_t bss_size;
+  } header;
+
+  uint64_t header_size = sizeof(struct KernelHeader);
+  status = root->Read(kernel, &header_size, (void *)&header);
+
+  kernel_size -= header_size;
+
+  // read the kernel body
   status = root->Read(kernel, &kernel_size, (void *)0x120000);
 
   if (status == EFI_SUCCESS) {
     SystemTable->ConOut->OutputString(SystemTable->ConOut, L"kernel is loaded!\r\n");
   }
-
   status = root->Close(kernel);
+
+  SystemTable->BootServices->SetMem(header.bss_start, header.bss_size, 0);
 
   // Get Graphics_Output_Protocol
   EFI_GUID gop_guid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;

@@ -1,16 +1,30 @@
 OUTPUT_FORMAT("binary");
 
+MEMORY
+{
+  HEAD(r) : ORIGIN = 0x00000000, LENGTH = 1m
+  RAM(wx) : ORIGIN = 0x12000000, LENGTH = 960k
+}
+
 SECTIONS
 {
-  . = 0x12000;
-  .text : { *(.text) }
+  .header : {
+    QUAD(__bss_start)
+    QUAD(__bss_end - __bss_start)
+  } > HEAD
 
-  .rodata : {
-    *(.strings)
+  .body : {
+    *(.text)
     *(.rodata)
-    *(.rodata.*)
-  }
+    *(.data)
+    __bss_start = .;
+    *(.bss)
+    __bss_end = .;
 
-  .data : { *(.data) }
-  .bss : { *(.bss) }
+    *(.eh_frame)
+  } > RAM AT> HEAD
+
+  /DISCARD/ : {
+    *(.note.gnu.property)
+  }
 }
