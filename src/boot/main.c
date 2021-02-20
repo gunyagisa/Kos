@@ -163,8 +163,8 @@ typedef struct EFI_GRAPHIC_OUTPUT_PROTOCOL {
 typedef struct EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE {
   uint32_t MaxMode;
   uint32_t Mode;
-  uint64_t buf;
   struct EFI_GRAPHICS_OUTPUT_MODE_INFORMATION  *Info;
+  UINTN         SizeOfInfo;
   uint64_t      FrameBufferBase;
   UINTN         FrameBufferSize;
 } EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE;
