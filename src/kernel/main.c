@@ -1,5 +1,7 @@
 #include "font.h"
 
+extern void io_hlt(void);
+
 struct framebuffer {
   unsigned long long base;
   unsigned long long size;
@@ -8,8 +10,17 @@ struct framebuffer {
   unsigned int       pps;
 } fb;
 
+struct Pixel {
+  unsigned int blue;
+  unsigned int green;
+  unsigned int red;
+  unsigned int alpha;
+};
+
 void clear_screen();
 void draw_chr(unsigned int x, unsigned int y, unsigned char r, unsigned char g, unsigned char b, unsigned char c);
+void draw_str(unsigned int x, unsigned int y, struct Pixel color, const char *str);
+void init_gdt(void);
 
 int kernel_init(struct framebuffer *_fb)
 {
@@ -19,15 +30,25 @@ int kernel_init(struct framebuffer *_fb)
   fb.y_size = _fb->y_size;
   fb.pps = _fb->pps;
 
+  init_gdt();
   clear_screen();
 
-  draw_chr(0, 0, 0xff, 0xff, 0xff, 'H');
-  draw_chr(8, 0, 0xff, 0xff, 0xff, 'E');
-  draw_chr(16, 0, 0xff, 0xff, 0xff, 'L');
-  draw_chr(24, 0, 0xff, 0xff, 0xff, 'L');
-  draw_chr(32, 0, 0xff, 0xff, 0xff, 'O');
+  struct Pixel pixel = { 0xff, 0xff, 0xff, 0xff };
+  draw_str(0, 0, pixel, "Hello World");
 
-  for (;;) ;
+  for (;;) io_hlt();
+}
+
+void init_gdt(void)
+{
+}
+
+void draw_str(unsigned int x, unsigned int y, struct Pixel color, const char *str)
+{
+  while (*str != 0) {
+    draw_chr(x, y, color.red, color.green, color.blue, *(str++));
+    x += 8;
+  }
 }
 
 void clear_screen()
