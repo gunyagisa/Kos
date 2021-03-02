@@ -122,8 +122,8 @@ EFI_STATUS UefiMain(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
   unsigned long long kernel_start = 0x120000;
   asm (
       ".intel_syntax noprefix\n"
-      "mov %%rdi, %0\n"
-      "mov %%rsp, %1\n"
+      "mov rdi, %0\n"
+      "mov rsp, %1\n"
       "jmp %2\n"
       :: "r"(&fb), "r"(kernel_stack), "r"(kernel_start)
       );

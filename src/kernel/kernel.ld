@@ -16,7 +16,7 @@ SECTIONS
 
   .body : {
     *(.text)
-    *(.rodata)
+    *(.rodata.*)
     *(.data)
     __bss_start = .;
     *(.bss)

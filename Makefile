@@ -6,7 +6,7 @@ uefi_image: src/boot/main.c
 	x86_64-w64-mingw32-gcc $(CFLAGS) -Wl,--subsystem,10 -o BOOTX64.EFI $<
 
 kernel.bin: src/kernel/main.c func.o
-	gcc -c -fno-pic -fno-stack-protector -fno-common -nostdlib $< -o kernel.o
+	clang -c -fno-pic -fno-stack-protector -nostdlib  $< -o kernel.o
 	ld  -T src/kernel/kernel.ld kernel.o func.o -o $@ -M
 
 %.o: src/kernel/%.asm
