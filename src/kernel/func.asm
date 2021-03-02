@@ -19,7 +19,6 @@ io_in8:
   ret
 
 intr1:
-  jmp   intr1
   push  rax
   push  rcx
   push  rdx

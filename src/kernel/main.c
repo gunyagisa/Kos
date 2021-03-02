@@ -1,5 +1,6 @@
 #include "font.h"
 #include <stdint.h>
+#include "gdt.h"
 
 // PIC port number
 #define PIC0_ICW1		0x0020
@@ -35,22 +36,10 @@ struct framebuffer {
   uint32_t alpha;
 };
 
-struct SegmentDescriptor {
-  uint16_t limit_low;
-  uint16_t base_low;
-  uint8_t base_mid;
-  uint8_t access;
-  uint8_t limit_high: 4;
-  uint8_t flag: 4;
-  uint8_t base_high;
-} __attribute__((packed));
-
 void clear_screen();
 void draw_chr(uint32_t x, uint32_t y, uint8_t r, uint8_t g, uint8_t b, uint8_t c);
 void draw_str(uint32_t x, uint32_t y, struct Pixel color, const char *str);
-void init_gdt(void);
 void init_interrupt(void);
-void set_idt(uint8_t num, uint64_t *interrupt_handler);
 void init_keyboard(void);
 
 int kernel_start(struct framebuffer *_fb)
@@ -63,21 +52,23 @@ int kernel_start(struct framebuffer *_fb)
 
   struct Pixel pixel = { 0xff, 0xff, 0xff, 0xff };
   clear_screen();
+  draw_str(0, 0, pixel, "Hello World");
 
-  //init_gdt();
-
+  init_gdt();
   set_idt(33, (uint64_t *)&intr1);
   init_interrupt();
 
   uint8_t mask = io_in8(PIC0_OCW1);
   mask &= ~0x02;
   io_out8(PIC0_OCW1, mask);
+
   asm ("sti");
 
-  draw_str(0, 0, pixel, "Hello World");
+  draw_str(0, 16, pixel, "finish initialization");
 
   for (;;) io_hlt();
 }
+
 
 #define GDT_SIZE 16
 struct SegmentDescriptor GDT[GDT_SIZE];
@@ -104,11 +95,11 @@ void init_gdt(void)
   // null descriptor
   set_gdt(0, 0, 0, 0, 0);
   // code descriptor for kernel
-  set_gdt(1, 0, 0xfffff, 0x9A, 0);
+  // 1010
+  set_gdt(1, 0, 0xffffffff, 0x9A, 6);
   // data descriptor for kernel
-  set_gdt(2, 0, 0xfffff, 0x92, 0);
+  set_gdt(2, 0, 0xffffffff, 0x92, 0);
   // TODO:TSS
-
 
   gdtr.size = sizeof(GDT) - 1;
   gdtr.offset = (uint64_t)&GDT;
@@ -116,27 +107,24 @@ void init_gdt(void)
   asm volatile (
       ".intel_syntax noprefix\n"
       "lgdt     gdtr\n"
-      "push     rbp\n"
-      "mov      rbp, rsp\n"
-      "push     0x10\n"
-      "push     rbp\n"
-      "pushfq\n"
-      "push     0x08\n"
-      "push     1f\n"
-      "iretq\n"
-      "1:\n"
-      "mov      ax, 0x10\n"
       "mov      ds, ax\n"
       "mov      es, ax\n"
-      "mov      fs, ax\n"
-      "mov      gs, ax\n"
-      "mov      ss, ax\n" :: :"memory");
+      "mov      ss, ax\n" 
+      ::"a"(0x10):"memory");
+
+  unsigned short selector = 8;
+  unsigned long long dummy;
+  __asm__ ("pushq %[selector];"
+      "leaq ret_label(%%rip), %[dummy];"
+      "pushq %[dummy];"
+      "lretq;"
+      "ret_label:"
+      : [dummy]"=r"(dummy)
+      : [selector]"m"(selector));
 }
 
 // INTERRUPT
 // 
-
-#define IDT_ADDR 0x220000
 
 struct IDTGateDescriptor { 
   uint16_t offset_low; 
@@ -165,7 +153,6 @@ void init_idt(void)
 
 void init_interrupt(void)
 {
-
   io_out8(PIC0_ICW1, 0x11);
   io_out8(PIC0_ICW2, 0x20);
   io_out8(PIC0_ICW3, 0x04);
@@ -189,6 +176,7 @@ void set_idt(uint8_t num, uint64_t *handler)
   IDT[num].offset_high = (uint32_t)(p >> 32);
 
   IDT[num].selector = 0x08;
+  // type=0xe, S=0, DPL=00, P=1
   IDT[num].type_attr = 0x8e;
 
   IDT[num].zero1 = 0;
