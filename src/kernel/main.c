@@ -29,6 +29,7 @@ void clear_screen();
 void draw_chr(uint32_t x, uint32_t y, uint8_t r, uint8_t g, uint8_t b, uint8_t c);
 void draw_str(uint32_t x, uint32_t y, struct Pixel color, const char *str);
 void init_interrupt(void);
+void init_keyboard(void);
 void init_pit(void);
 
 
@@ -236,13 +237,39 @@ __attribute__((interrupt))
 void timer_handler(struct InterruptFrame *frame)
 {
   io_out8(0x20, 0x20);
-  draw_str(x, 48, pixel, "B");
+  draw_str(x, 64, pixel, "B");
   x += 8;
 }
 
+void init_keyboard()
+{
+  io_out8(0x60, 0xF0);
+  uint8_t data = io_in8(0x60);
+  io_out8(0x60, 0x2);
+
+  data = io_in8(0x64);
+  data &= 0x3f;
+  io_out8(0x64, 0x60);
+  io_out8(0x64, data); 
+
+  io_out8(0x60,0xF0);
+  data = io_in8(0x60);
+  io_out8(0x60, 0x0);
+
+  if (data == 0x02) {
+    draw_str(x, 48, pixel, "scan code:02");
+  }
+
+}
+
+int y = 0;
 __attribute__((interrupt))
 void keyboard_handler(struct InterruptFrame *frame)
 {
   io_out8(0x20, 0x20);
-  draw_str(0, 32, pixel, "A");
+  uint8_t data = io_in8(0x60);
+  if (data == 0x1C) {
+    draw_str(y, 32, pixel, "A");
+    y += 8;
+  }
 }
