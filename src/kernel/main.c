@@ -23,13 +23,17 @@ struct Pixel {
 };
 
 struct InterruptFrame;
+struct Pixel pixel = { 0xff, 0xff, 0xff, 0xff };
 
 void clear_screen();
 void draw_chr(uint32_t x, uint32_t y, uint8_t r, uint8_t g, uint8_t b, uint8_t c);
 void draw_str(uint32_t x, uint32_t y, struct Pixel color, const char *str);
 void init_interrupt(void);
-void init_keyboard(void);
+void init_pit(void);
+
+
 void keyboard_handler(struct InterruptFrame *frame);
+void timer_handler(struct InterruptFrame *frame);
 
 int kernel_start(struct framebuffer *_fb)
 {
@@ -39,7 +43,6 @@ int kernel_start(struct framebuffer *_fb)
   fb.y_size = _fb->y_size;
   fb.pps = _fb->pps;
 
-  struct Pixel pixel = { 0xff, 0xff, 0xff, 0xff };
   clear_screen();
   init_interrupt();
   draw_str(0, 0, pixel, "Hello World");
@@ -143,12 +146,16 @@ void init_interrupt(void)
   io_out8(0x21, 0xff);
   io_out8(0xA1, 0xff);
 
+  //pit
+  init_pit();
+
   init_idt();
 
+  set_idt(32, (uint64_t *)&timer_handler, 0x38);
   set_idt(33, (uint64_t *)&keyboard_handler, 0x38);
 
   uint8_t mask = io_in8(0x21);
-  mask &= ~0x02;
+  mask &= ~0x03;
   io_out8(0x21, mask);
   asm ("sti");
 }
@@ -217,9 +224,25 @@ void draw_chr(uint32_t x, uint32_t y, uint8_t r, uint8_t g, uint8_t b, uint8_t c
   }
 }
 
+void init_pit()
+{
+  io_out8(0x43, 0x34);
+  io_out8(0x40, 0x9c);
+  io_out8(0x40, 0x2e);
+}
+
+int x = 0;
+__attribute__((interrupt))
+void timer_handler(struct InterruptFrame *frame)
+{
+  io_out8(0x20, 0x20);
+  draw_str(x, 48, pixel, "B");
+  x += 8;
+}
+
 __attribute__((interrupt))
 void keyboard_handler(struct InterruptFrame *frame)
 {
-  struct Pixel pixel = { 0xff, 0xff, 0xff, 0xff };
+  io_out8(0x20, 0x20);
   draw_str(0, 32, pixel, "A");
 }
