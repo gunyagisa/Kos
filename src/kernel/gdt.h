@@ -12,5 +12,5 @@ struct SegmentDescriptor {
 } __attribute__((packed));
 
 void init_gdt(void);
-void set_idt(uint8_t num, uint64_t *interrupt_handler);
+void set_idt(uint8_t num, uint64_t *interrupt_handler, uint16_t cs);
 #endif

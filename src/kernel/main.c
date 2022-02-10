@@ -2,26 +2,10 @@
 #include <stdint.h>
 #include "gdt.h"
 
-// PIC port number
-#define PIC0_ICW1		0x0020
-#define PIC0_OCW2		0x0020
-#define PIC0_IMR		0x0021
-#define PIC0_ICW2		0x0021
-#define PIC0_ICW3		0x0021
-#define PIC0_ICW4		0x0021
-#define PIC0_OCW1               0x0021
-#define PIC1_ICW1		0x00a0
-#define PIC1_OCW2		0x00a0
-#define PIC1_IMR		0x00a1
-#define PIC1_ICW2		0x00a1
-#define PIC1_ICW3		0x00a1
-#define PIC1_ICW4		0x00a1
-#define PIC1_OCW1               0x00a1
-
 extern void io_hlt(void);
 extern void io_out8(uint16_t port, uint8_t data);
 extern uint8_t io_in8(uint16_t port);
-extern uint32_t intr1();
+extern void loadIDT(uint16_t limit, uint64_t offset);
 
 struct framebuffer {
   uint64_t base;
@@ -29,18 +13,23 @@ struct framebuffer {
   uint64_t x_size;
   uint64_t y_size;
   uint32_t pps;
-} fb; struct Pixel {
+} fb; 
+
+struct Pixel {
   uint32_t blue;
   uint32_t green;
   uint32_t red;
   uint32_t alpha;
 };
 
+struct InterruptFrame;
+
 void clear_screen();
 void draw_chr(uint32_t x, uint32_t y, uint8_t r, uint8_t g, uint8_t b, uint8_t c);
 void draw_str(uint32_t x, uint32_t y, struct Pixel color, const char *str);
 void init_interrupt(void);
 void init_keyboard(void);
+void keyboard_handler(struct InterruptFrame *frame);
 
 int kernel_start(struct framebuffer *_fb)
 {
@@ -52,17 +41,8 @@ int kernel_start(struct framebuffer *_fb)
 
   struct Pixel pixel = { 0xff, 0xff, 0xff, 0xff };
   clear_screen();
-  draw_str(0, 0, pixel, "Hello World");
-
-  init_gdt();
-  set_idt(33, (uint64_t *)&intr1);
   init_interrupt();
-
-  uint8_t mask = io_in8(PIC0_OCW1);
-  mask &= ~0x02;
-  io_out8(PIC0_OCW1, mask);
-
-  asm ("sti");
+  draw_str(0, 0, pixel, "Hello World");
 
   draw_str(0, 16, pixel, "finish initialization");
 
@@ -145,37 +125,42 @@ struct IDTGateDescriptor IDT[256];
 
 void init_idt(void)
 {
-  idtr.limit = sizeof(IDT) - 1;
-  idtr.offset = (uint64_t)IDT;
-
-  asm volatile ("lidt %0" ::"m" (idtr));
+  loadIDT(sizeof(IDT) - 1, (uint64_t)&IDT);
 }
 
 void init_interrupt(void)
 {
-  io_out8(PIC0_ICW1, 0x11);
-  io_out8(PIC0_ICW2, 0x20);
-  io_out8(PIC0_ICW3, 0x04);
-  io_out8(PIC0_ICW4, 0x01);
-  io_out8(PIC0_OCW1, 0xff);
+  io_out8(0x20, 0x11);
+  io_out8(0xA0, 0x11);
+  io_out8(0x21, 0x20);
+  io_out8(0xA1, 0x28);
+  io_out8(0x21, 0x04);
+  io_out8(0xA1, 0x02);
+  io_out8(0x21, 0x01);
+  io_out8(0xA1, 0x01);
 
-  io_out8(PIC1_ICW1, 0x11);
-  io_out8(PIC1_ICW2, 0x28);
-  io_out8(PIC1_ICW3, 0x02);
-  io_out8(PIC1_ICW4, 0x01);
-  io_out8(PIC1_OCW1, 0xff);
+  // mask all interrupts
+  io_out8(0x21, 0xff);
+  io_out8(0xA1, 0xff);
 
   init_idt();
+
+  set_idt(33, (uint64_t *)&keyboard_handler, 0x38);
+
+  uint8_t mask = io_in8(0x21);
+  mask &= ~0x02;
+  io_out8(0x21, mask);
+  asm ("sti");
 }
 
-void set_idt(uint8_t num, uint64_t *handler)
+void set_idt(uint8_t num, uint64_t *handler, uint16_t cs)
 {
   uint64_t p = (uint64_t) handler;
   IDT[num].offset_low = (uint16_t)p;
   IDT[num].offset_mid = (uint16_t)(p >> 16);
   IDT[num].offset_high = (uint32_t)(p >> 32);
 
-  IDT[num].selector = 0x08;
+  IDT[num].selector = cs;
   // type=0xe, S=0, DPL=00, P=1
   IDT[num].type_attr = 0x8e;
 
@@ -232,8 +217,9 @@ void draw_chr(uint32_t x, uint32_t y, uint8_t r, uint8_t g, uint8_t b, uint8_t c
   }
 }
 
-void intr1_handler(void)
+__attribute__((interrupt))
+void keyboard_handler(struct InterruptFrame *frame)
 {
   struct Pixel pixel = { 0xff, 0xff, 0xff, 0xff };
-  draw_str(0, 8, pixel, "A");
+  draw_str(0, 32, pixel, "A");
 }

@@ -1,39 +1,28 @@
 global io_hlt, io_out8, io_in8
-global intr1
-
-extern intr1_handler
+global loadIDT
 
 io_hlt:
   hlt
   ret
 
-io_out8:
-  mov   dx, [esp + 4]
-  mov   ax, [esp + 6]
-  out   dx, ax
+io_out8: ; 8bit port, 8bit data
+  mov   dx, di
+  mov   al, sil
+  out   dx, al
   ret
 
 io_in8:
-  mov   dx, [esp + 4]
-  in    ax, dx
+  mov   dx, di
+  in    al, dx
   ret
 
-intr1:
-  push  rax
-  push  rcx
-  push  rdx
-  push  rbx
+loadIDT:
   push  rbp
-  push  rsi
-  push  rdi
-  push  rsp
-  call  intr1_handler
-  pop  rsp
-  pop  rdi
-  pop  rsi
-  pop  rbp
-  pop  rbx
-  pop  rdx
-  pop  rcx
-  pop  rax
-  iretq
+  mov   rbp, rsp
+  sub   rsp, 10
+  mov   [rsp], di
+  mov   [rsp+2], rsi
+  lidt  [rsp]
+  add   rsp, 10
+  pop   rbp
+  ret
