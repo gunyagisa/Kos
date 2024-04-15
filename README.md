@@ -9,5 +9,5 @@ UEFIからブートローダ、kernelの読み込み、起動までできます�
 * qemu-system-x86_64
 
 Ubuntuでなら
-'sudo apt install gcc-mingw-w64 qemu-system-x86'
+`sudo apt install gcc-mingw-w64 qemu-system-x86`
 でインストールできる
